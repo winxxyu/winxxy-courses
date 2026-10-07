@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ------------------------------------------------------------------
+      # ① changed-files：只许改 src/main/**、README.md 与 .agent-sessions/**（AI 会话归档）
+      #    以仓库初始 commit 为基准做累计 diff（与批改端 whitelist_check 同
+      #    逻辑）。仅在学生仓库运行——模板仓库是维护者通道，跳过。
+      # ------------------------------------------------------------------
+      - name: Check changed files
+        if: github.repository != 'unnc-aim/aim-2627-py-coursework'
+        run: |
+          set -e
+          BASE=$(git rev-list --max-parents=0 HEAD | tail -1)
+          echo "对比基准（仓库初始 commit）: $BASE"
+          CHANGED=$(git diff --name-only "$BASE" HEAD)
+          echo "$CHANGED"
+          BAD=$(echo "$CHANGED" | grep -v -E '^(src/main/.*|README\.md|\.agent-sessions/.*|.github/workflows/.*|\.github/settings.yml)$' | grep -v '^$' || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::只允许修改 src/main/** 与 README.md，以下文件不在白名单："
+            echo "$BAD"
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------
+      # ② autopep8 风格检查（--diff 非空即败）
+      # ------------------------------------------------------------------
+      - name: autopep8 check
+        run: |
+          python -m pip install -q autopep8
+          autopep8 --diff --recursive src/main > pep8.diff || true
+          if [ -s pep8.diff ]; then
+            echo "::error::autopep8 发现格式问题（本地运行: autopep8 --in-place --recursive src/）"
+            head -60 pep8.diff
+            exit 1
+          fi
+
+      # ------------------------------------------------------------------
+      # ③ 可见 pytest
+      # ------------------------------------------------------------------
+      - name: Run visible tests
+        run: |
+          python -m pip install -q pytest
+          python -m pytest
+
+      # ------------------------------------------------------------------
+      # ④ commit 粒度软检查（写入 Summary，不拦车）
+      # ------------------------------------------------------------------
+      - name: Commit granularity (soft)
+        if: always()
+        run: |
+          BASE=$(git rev-list --max-parents=0 HEAD | tail -1)
+          N=$(git rev-list --count "$BASE"..HEAD)
+          UNIQUE=$(git log "$BASE"..HEAD --pretty=%s | sort -u | wc -l)
+          TRIVIAL=$(git log "$BASE"..HEAD --pretty=%s | grep -c -E '^(update|fix|test|commit|修改|更新|调试)[^.!]{0,3}$' || true)
+          {
+            echo "## CW 提交检查"
+            echo ""
+            echo "- 新增 commit 数：**$N**（参考线 >= 15）"
+            echo "- 去重后的 commit 信息：**$UNIQUE**"
+            echo "- 疑似无意义信息（update/fix 类单词提交）：**$TRIVIAL**"
+            echo ""
+            if [ "$N" -lt 15 ]; then
+              echo "⚠️ commit 数偏少——每题至少 3 个有意义的增量提交是过程分的佐证。"
+            else
+              echo "✅ commit 粒度达标。"
+            fi
+            echo ""
+            echo "### 提交问卷"
+            echo "全部通过后请填写：【腾讯文档】AIM 2627 Python Coursework 回执"
+            echo "[https://docs.qq.com/form/page/DWkd5VFhKb3dySkFL](https://docs.qq.com/form/page/DWkd5VFhKb3dySkFL)"
+          } >> "$GITHUB_STEP_SUMMARY"
