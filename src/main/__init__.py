@@ -416,6 +416,7 @@ def decide(sensor, state, hp, heat):
 def run_patrol(grid, max_steps=500):
     """TODO(Q6)：sense → decide → act 主循环；
     循环结构、终止条件、脱困自由度与统计返回契约见题面 Q6 规范。"""
+    raise NotImplementedError
     step = 0
     visited = {grid.current_pos}
 
