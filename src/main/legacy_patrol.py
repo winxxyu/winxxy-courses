@@ -27,10 +27,10 @@ def segment_length_cm(p1, p2):
 def total_route_meters(points):
     """整条巡逻路线的长度，单位：米。
     points 为检查点序列 [(x, y), ...]，至少两个点。"""
-    distance_in_meters = 0
+    total_cm = 0
     for i in range(len(points) - 1):
-        distance_in_meters += segment_length_cm(points[i], points[i + 1])
-    return distance_in_meters
+        total_cm += segment_length_cm(points[i], points[i + 1])
+    return total_cm // 100          # bug1：累加的是厘米，返回前要换算回米
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,11 @@ def parse_event(line):
         return None
     if not parts[1].isdigit():
         return None
-    return {"type": parts[0], "count": int(parts[1])}
+    try:
+        count = int(parts[1])       # isdigit 认可的 "²" 之类上标会让 int() 抛异常，
+    except ValueError:              # 契约要求"不得抛异常"，统一按脏行处理
+        return None
+    return {"type": parts[0], "count": count}
 
 
 def first_positive(samples):
@@ -59,6 +63,8 @@ def calibrate(samples):
     """以第一个正样本为基线计算累计漂移：sum(s - baseline)。
     样本为空或没有正样本时，漂移为 0。"""
     baseline = first_positive(samples)
+    if baseline is None:            # bug2：无正样本时基线为 None，漂移按 0 处理
+        return 0
     drift = 0
     for s in samples:
         drift += s - baseline
@@ -75,15 +81,17 @@ def summarize_events(events, max_id):
     used = 0
     steps = 0
     for e in events:
-        if e["id"] < max_id:
+        if e["id"] <= max_id:       # bug4：契约是"不超过 max_id"，原写法漏了等于号
             used += 1
             steps += e["move"] + calibrate(e["samples"])
     return {"events": used, "steps": steps}
 
 
-def log(message, history=[]):
+def log(message, history=None):
     """向历史追加一条日志并返回整个历史列表。
     不显式传入 history 时，每次调用都从空历史开始。"""
+    if history is None:             # bug3：默认参数先建新列表，调用之间互不串 history
+        history = []
     history.append(message)
     return history
 
@@ -109,6 +117,7 @@ def run_legacy_sim(rounds, stamina_start=100):
         if round_ >= 3:
             stamina -= 5
         trace.append((round_, stamina))
-        if stamina > 20:
+        round_ += 1                 # bug5：轮号从不自增 -> 调用直接卡死
+        if stamina <= 20:           # bug6：终止条件写反，契约是"体力 <= 20 即终止"
             break
     return {"rounds": len(trace), "stamina": stamina, "trace": trace}

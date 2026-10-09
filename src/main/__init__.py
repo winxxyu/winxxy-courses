@@ -314,17 +314,16 @@ def next_step_toward(pos, target, obstacles, current_facing=Facing.UP):
                 current_facing = Facing.LEFT
             else:
                 pass
-    else:
-        if Facing.UP not in obstacles and dy >= 0:
+    else:                                        # dx == dy：两轴距离相等
+        if dy >= 0 and (x, y + 1) not in obstacles:
             current_facing = Facing.UP
-        elif Facing.DOWN not in obstacles and dy < 0:
+        elif dy < 0 and (x, y - 1) not in obstacles:
             current_facing = Facing.DOWN
-        elif Facing.LEFT not in obstacles and dx < 0:
+        elif dx < 0 and (x - 1, y) not in obstacles:
             current_facing = Facing.LEFT
-        elif Facing.RIGHT not in obstacles and dx > 0:
+        elif dx > 0 and (x + 1, y) not in obstacles:
             current_facing = Facing.RIGHT
-        else:
-            pass
+
     return current_facing
 
 # Q5 哨兵决策机（题面 Q5·裁判系统决策规则表）
@@ -416,7 +415,6 @@ def decide(sensor, state, hp, heat):
 def run_patrol(grid, max_steps=500):
     """TODO(Q6)：sense → decide → act 主循环；
     循环结构、终止条件、脱困自由度与统计返回契约见题面 Q6 规范。"""
-    raise NotImplementedError
     step = 0
     visited = {grid.current_pos}
 
@@ -430,9 +428,14 @@ def run_patrol(grid, max_steps=500):
                 grid.turn_left()
             else:
                 grid.turn_right()
+        x, y = grid.current_pos
+        dx, dy = grid.facing.delta
+        if grid.is_blocked(x + dx, y + dy):      # 新增：前方是墙就不迈腿
+            return False
         grid.move_forward()
         visited.add(grid.current_pos)
         step += 1
+        return True
 
     def wall_follow(grid):
         while grid.fuel > 0 and not grid.found_enemy and step < max_steps:
@@ -440,6 +443,7 @@ def run_patrol(grid, max_steps=500):
             if grid.facing == Facing.UP:
                 if not grid.is_blocked(x - 1, y):
                     Move(grid, Facing.LEFT)
+                    break
                 elif not grid.is_blocked(x, y + 1):
                     Move(grid, Facing.UP)
                 else:
@@ -451,11 +455,13 @@ def run_patrol(grid, max_steps=500):
                     Move(grid, Facing.DOWN)
                 else:
                     Move(grid, Facing.LEFT)
+                    break
             elif grid.facing == Facing.LEFT:
                 if not grid.is_blocked(x, y - 1):
                     Move(grid, Facing.DOWN)
                 elif not grid.is_blocked(x - 1, y):
                     Move(grid, Facing.LEFT)
+                    break
                 else:
                     Move(grid, Facing.UP)
             elif grid.facing == Facing.RIGHT:
@@ -470,11 +476,13 @@ def run_patrol(grid, max_steps=500):
     while step < max_steps and not grid.found_enemy and grid.fuel > 0:
         next_facing = next_step_toward(
             grid.current_pos, grid.enemy_pos, grid.obstacles, grid.facing)
-        Move(grid, next_facing)
-        if grid.current_pos == (x, y):
-            wall_follow(grid)
-        else:
-            x, y = grid.current_pos
+        if Move(grid, next_facing):
+            continue
+        before = step
+        wall_follow(grid)
+        if step == before:
+            break
+
     return {"steps": step,
             "collisions": grid.collision_count,
             "visited_count": len(visited),

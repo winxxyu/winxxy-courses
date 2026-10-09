@@ -67,4 +67,5 @@ python main.py
 | `src/tests/`、`tools/`、`.github/`、`conftest.py`、`pytest.ini`、`main.py` | 测试与基础设施 | ❌ 勿改 |
 
 CI 只允许修改 `src/main/**`、`README.md` 与 `.agent-sessions/**`（AI 会话归档）——其余文件改了直接红；autopep8 `--diff` 非空即败。提交方式（push、问卷、commit 粒度）见题面"提交与验收"一节。
-
+没时间听课只好边做coursework边学了，最近社团活动多时间不太够没能全部完成，很抱歉学长们
+Q7部分时间不够，询问学长后先用AI顶上了，Q2部分不太会好像，也用了比较多的AI，其余都挺顺利的哈哈
