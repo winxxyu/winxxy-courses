@@ -501,7 +501,42 @@ def report_to_json(stats):
 
 def bfs_path_length(start, target, obstacles):
     """TODO(Bonus)：BFS 全局最短路步数；返回语义与边界职责见题面 Bonus 规范。"""
-    raise NotImplementedError("Bonus bfs_path_length")
+    from collections import deque
+
+    def Neighbour(x, y):
+        left = (x-1, y)
+        right = (x+1, y)
+        up = (x, y+1)
+        down = (x, y-1)
+        pos = (x, y)
+        Nei = []
+        if left not in obstacles:
+            Nei.append(left)
+        if right not in obstacles:
+            Nei.append(right)
+        if up not in obstacles:
+            Nei.append(up)
+        if down not in obstacles:
+            Nei.append(down)
+        return Nei
+
+    if start == target:
+        return 0
+    else:
+        visited = set()
+        queue = deque([(start, 0)])
+        while queue:
+            node, d = queue.popleft()
+            if node == target:
+                return d
+            if node not in visited:
+                visited.add(node)
+                for i in Neighbour(*node):
+                    queue.append((i, d+1))
+            else:
+                continue
+        return -1
+    # 比贪心简单
 
 
 # ---------------------------------------------------------------------------
